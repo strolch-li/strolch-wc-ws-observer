@@ -1,0 +1,185 @@
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/iron-ajax/iron-ajax.html">
+
+<dom-module id="strolch-wc-ws-observer">
+    <template>
+
+    </template>
+
+    <script>
+        'use strict';
+
+        // shared state
+        var initialized = false;
+        var webSocket = null;
+
+        var observers = {};
+
+        Polymer({
+            is: 'strolch-wc-ws-observer',
+
+            behaviors: [],
+
+            properties: {
+                wsPath: {
+                    type: String,
+                    value: '/websocket/strolch'
+                }
+            },
+
+            ready: function (e) {
+                console.log("strolch-wc-ws-observer attached, connecting WebSocket");
+                if (!initialized) {
+                    initialized = true;
+                    this._openWebSocket();
+                }
+            },
+
+            register: function (objectType, type, source, flat, callback) {
+                var byObjectType = observers[objectType];
+                if (byObjectType == null) {
+                    observers[objectType] = {};
+                    byObjectType = observers[objectType]
+                }
+
+                var byType = byObjectType[type];
+                if (byType == null) {
+                    byObjectType[type] = {};
+                    byType = byObjectType[type];
+                    this._register(objectType, type, flat);
+                }
+
+                if (byType[source] != null) {
+                    console.error("There already is a callback defined for " + objectType + " " + type + " " + source + ". Overwriting!");
+                }
+
+                byType[source] = callback;
+                console.log("Registered callback for " + objectType + " " + type + " " + source + " as " + (flat ? "flat" : "full") + " format");
+            },
+
+            unregister: function (objectType, type, source) {
+                var byObjectType = observers[objectType];
+                if (byObjectType == null) {
+                    return;
+                }
+
+                var byType = byObjectType[type];
+                if (byType == null) {
+                    return
+                }
+
+                delete byType[source];
+                console.log("Unregistered callback for " + objectType + " " + type + " " + source);
+            },
+
+            _register: function (objectType, type, flat) {
+                console.log("Registering for updates for " + objectType + " " + type);
+                this._sendWsMessage({
+                    msgType: "ObserverRegister",
+                    objectType: objectType,
+                    type: type,
+                    flat: flat
+                });
+            },
+
+            notifyObservers: function (msg) {
+                var byObjectType = observers[msg.objectType];
+                if (byObjectType == null) {
+                    return;
+                }
+
+                var byType = byObjectType[msg.type];
+                if (byType == null) {
+                    return
+                }
+
+                Object.keys(byType).forEach(function (k) {
+                    try {
+                        byType[k](msg.objectType, msg.type, msg.data);
+                    } catch (e) {
+                        console.error("Failed to update " + k + " for " + msg.objectType + " " + msg.type + ": " + e);
+                        console.error(e);
+                    }
+                });
+            },
+
+            _openWebSocket: function () {
+
+                var url;
+                if (window.location.protocol === 'https:') {
+                    url = "wss://"
+                } else {
+                    url = "ws://"
+                }
+                url += window.location.hostname + ':' + window.location.port + this.wsPath;
+                console.log("Connecting to WS URL " + url);
+                webSocket = new WebSocket(url);
+
+                var that = this;
+                webSocket.onclose = function (evt) {
+                    that.webSocket = null;
+                    that._handleSocketError('WebSocket connection to server lost due to: ' + evt.reason);
+                };
+
+                webSocket.onopen = function (event) {
+                    console.log('Socket opened, sending auth...');
+                    var msg = {
+                        msgType: "Authenticate",
+                        username: Strolch.getUserConfig().username,
+                        authToken: Strolch.getAuthToken()
+                    };
+                    that._sendWsMessage(msg);
+                };
+
+                webSocket.onmessage = function (event) {
+                    that._handleSocketMessage(event.data);
+                };
+
+                webSocket.onerror = function (event) {
+                    console.error('WebSocket Received error from socket:');
+                    console.error(event.data);
+                };
+            },
+
+            _handleSocketError: function (message) {
+                if (message.indexOf('Invalid authentication') >= 0) {
+                    console.error("Authentication invalid. Not reconnecting WebSocket");
+                } else {
+                    console.error('Received error from socket: ' + message);
+
+                    console.log("Reconnecting...");
+                    this.debounce("reconnect", this._reconnectWebSocket, 500);
+                }
+            },
+
+            _handleSocketMessage: function (data) {
+                var msg = JSON.parse(data);
+
+                if (msg.msgType == "ObserverAdd" || msg.msgType == "ObserverUpdate" || msg.msgType == "ObserverRemove") {
+                    this.notifyObservers(msg);
+                } else if (msg.msgType == "Authenticate") {
+                    console.log("Successfully authenticated!");
+                } else {
+                    console.error("Unhandled event " + msg.msgType);
+                }
+            },
+            _sendWsMessage: function (data) {
+                console.log(webSocket.readyState);
+
+                if (webSocket.readyState != 1) {
+                    var that = this;
+                    console.log("Delaying message as WebSocket not yet ready!");
+                    setTimeout(function () {
+                        that._sendWsMessage(data);
+                    }, 100);
+                } else {
+                    webSocket.send(JSON.stringify(data));
+                }
+            },
+
+            _reconnectWebSocket: function (msg) {
+                this._openWebSocket();
+            }
+        });
+    </script>
+</dom-module>
