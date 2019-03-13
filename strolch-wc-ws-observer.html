@@ -94,7 +94,7 @@
 
                 Object.keys(byType).forEach(function (k) {
                     try {
-                        byType[k](msg.objectType, msg.type, msg.data);
+                        byType[k](msg.msgType, msg.objectType, msg.type, msg.data);
                     } catch (e) {
                         console.error("Failed to update " + k + " for " + msg.objectType + " " + msg.type + ": " + e);
                         console.error(e);
