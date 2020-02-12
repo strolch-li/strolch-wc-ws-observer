@@ -34,7 +34,7 @@
                 }
             },
 
-            register: function (objectType, type, source, flat, callback) {
+            register: function (objectType, type, source, params, callback) {
                 var byObjectType = observers[objectType];
                 if (byObjectType == null) {
                     observers[objectType] = {};
@@ -45,7 +45,7 @@
                 if (byType == null) {
                     byObjectType[type] = {};
                     byType = byObjectType[type];
-                    this._register(objectType, type, flat);
+                    this._register(objectType, type, params);
                 }
 
                 if (byType[source] != null) {
@@ -53,7 +53,7 @@
                 }
 
                 byType[source] = callback;
-                console.log("Registered callback for " + objectType + " " + type + " " + source + " as " + (flat ? "flat" : "full") + " format");
+                console.log("Registered callback for " + objectType + " " + type + " " + source + " params: " + JSON.stringify(params));
             },
 
             unregister: function (objectType, type, source) {
@@ -71,25 +71,26 @@
                 console.log("Unregistered callback for " + objectType + " " + type + " " + source);
             },
 
-            _register: function (objectType, type, flat) {
+            _register: function (objectType, type, params) {
                 console.log("Registering for updates for " + objectType + " " + type);
                 this._sendWsMessage({
                     msgType: "ObserverRegister",
                     objectType: objectType,
                     type: type,
-                    flat: flat
+                    params: params
                 });
             },
 
             notifyObservers: function (msg) {
                 var byObjectType = observers[msg.objectType];
-                if (byObjectType == null) {
+                if (byObjectType == null)
                     return;
-                }
 
                 var byType = byObjectType[msg.type];
                 if (byType == null) {
-                    return
+                    byType = byObjectType["*"];
+                    if (byType == null)
+                        return;
                 }
 
                 Object.keys(byType).forEach(function (k) {
