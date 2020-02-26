@@ -13,6 +13,7 @@
         var webSocket = null;
 
         var observers = {};
+        var registrations = {};
 
         Polymer({
             is: 'strolch-wc-ws-observer',
@@ -71,8 +72,26 @@
                 console.log("Unregistered callback for " + objectType + " " + type + " " + source);
             },
 
+            _reRegister: function () {
+                var objectTypes = Object.keys(observers);
+                console.log("Reregistering " + objectTypes.length + " object types...");
+                for (var i = 0; i < objectTypes.length; i++) {
+                    var objectType = objectTypes[i];
+
+                    var byType = observers[objectTypes[i]];
+                    var types = Object.keys(byType);
+                    console.log("Reregistering " + types.length + " types...");
+                    for (var j = 0; j < types.length; j++) {
+                        var type = types[i];
+                        var params = registrations[objectType + "_" + type];
+                        this._register(objectType, type, params);
+                    }
+                }
+            },
+
             _register: function (objectType, type, params) {
                 console.log("Registering for updates for " + objectType + " " + type);
+                registrations[objectType + "_" + type] = params;
                 this._sendWsMessage({
                     msgType: "ObserverRegister",
                     objectType: objectType,
@@ -158,7 +177,8 @@
                 if (msg.msgType == "ObserverAdd" || msg.msgType == "ObserverUpdate" || msg.msgType == "ObserverRemove") {
                     this.notifyObservers(msg);
                 } else if (msg.msgType == "Authenticate") {
-                    console.log("Successfully authenticated!");
+                    console.log("Successfully authenticated, re-registering...");
+                    this._reRegister();
                 } else {
                     console.error("Unhandled event " + msg.msgType);
                 }

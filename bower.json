@@ -1,7 +1,7 @@
 {
   "name": "strolch-wc-ws-observer",
   "description": "Strolch Polymer WebSocket observer update handler extension",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "authors": [
     "Robert von Burg"
   ],
