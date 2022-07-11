@@ -1,7 +1,7 @@
 {
   "name": "strolch-wc-ws-observer",
   "description": "Strolch Polymer WebSocket observer update handler extension",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "authors": [
     "Robert von Burg"
   ],
@@ -20,7 +20,7 @@
   "homepage": "https://github.com/strolch-li/strolch-wc-ws-observer",
   "ignore": [],
   "dependencies": {
-    "strolchjs": "strolch-li/strolchjs#^0.5.1",
+    "strolchjs": "strolch-li/strolchjs#^0.5.3",
     "polymer": "Polymer/polymer#^1.12.0"
   }
 }
